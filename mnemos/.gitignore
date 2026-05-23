@@ -1,0 +1,73 @@
+# -- Secrets and local config -------------------------------------------
+
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+private-key*.pem
+
+# -- Python --------------------------------------------------------------
+
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.tox/
+.nox/
+*.egg
+*.egg-info/
+dist/
+build/
+pip-wheel-metadata/
+pytest-cache-files-*/
+.venv/
+venv/
+env/
+
+# -- TypeScript / Node --------------------------------------------------
+
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Vitest scratch files (they regenerate on every run)
+vitest.config.*.timestamp-*.mjs
+
+# -- Docker --------------------------------------------------------------
+
+# Volumes may materialise here when compose is run without `-d` bind mounts
+.docker/
+docker-data/
+
+# -- Editors and OS -----------------------------------------------------
+
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# -- Project-specific ---------------------------------------------------
+
+# Local workspace checkouts used by the agents during a real run
+workspaces/
+.mnemos-cache/
+
+# Memory graph dumps and ad-hoc exports
+*.dump
+*.sql.gz

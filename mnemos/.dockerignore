@@ -1,0 +1,27 @@
+# Build context is the repo root (see `make build` / `docker compose build`).
+# Keep the context small so layer invalidation stays local and secrets
+# never end up in an image.
+
+.git
+.github
+docs
+fixtures
+mnemos-plan
+docker/.dockerignore
+
+# Per-language build artefacts — always rebuilt inside the image.
+python/.venv
+python/.pytest_cache
+python/.mypy_cache
+python/.ruff_cache
+python/**/__pycache__
+python/*.egg-info
+
+typescript/node_modules
+typescript/dist
+typescript/coverage
+
+# Env files never belong in an image. Only the template ships.
+.env
+.env.*
+!.env.example

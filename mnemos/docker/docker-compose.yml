@@ -1,0 +1,174 @@
+# Mnemos local stack.
+#
+# Five services on one explicit network:
+#   - postgres        pgvector-enabled Postgres
+#   - redis           broker + cache + RQ queue
+#   - python-api      FastAPI orchestrator (internal HTTP)
+#   - python-worker   same image, `python -m codereview.tasks.worker`
+#   - github-app      Probot (port 3000) + callback hono (port 3001)
+#
+# `docker compose --env-file .env up` loads the repo-root .env. Makefile
+# targets wrap the common invocations.
+#
+# Resource limits are left unset by default so the stack runs on small
+# machines without being throttled; see the ``x-prod-limits`` anchor
+# at the bottom of this file for a production-ish starting point.
+
+name: mnemos
+
+# Explicit named network so inter-service DNS is stable regardless of
+# compose project name. Every service below joins this network.
+networks:
+  mnemos-net:
+    driver: bridge
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: mnemos
+      POSTGRES_PASSWORD: mnemos
+      POSTGRES_DB: mnemos
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - mnemos-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mnemos -d mnemos"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--save", "60", "1", "--loglevel", "warning"]
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - mnemos-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  python-api:
+    build:
+      context: ..
+      dockerfile: docker/python.Dockerfile
+    image: mnemos/python:dev
+    restart: unless-stopped
+    env_file: ../.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://mnemos:mnemos@postgres:5432/mnemos
+      REDIS_URL: redis://redis:6379/0
+      PORT: "8000"
+    ports:
+      - "8000:8000"
+    networks:
+      - mnemos-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      # Use Python rather than curl so we don't bloat the image with an
+      # extra tool. urllib is in the stdlib.
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0) if urllib.request.urlopen('http://localhost:8000/healthz', timeout=2).status == 200 else sys.exit(1)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
+
+  python-worker:
+    image: mnemos/python:dev
+    restart: unless-stopped
+    # Rely on python-api to build the image. This avoids double builds.
+    pull_policy: never
+    env_file: ../.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://mnemos:mnemos@postgres:5432/mnemos
+      REDIS_URL: redis://redis:6379/0
+    command: ["python", "-m", "codereview.tasks.worker"]
+    networks:
+      - mnemos-net
+    depends_on:
+      python-api:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  github-app:
+    build:
+      context: ..
+      dockerfile: docker/typescript.Dockerfile
+    image: mnemos/github-app:dev
+    restart: unless-stopped
+    env_file: ../.env
+    environment:
+      ORCHESTRATOR_URL: http://python-api:8000
+      BASE_URL: http://github-app:3001
+      PORT: "3000"
+      CALLBACK_PORT: "3001"
+    ports:
+      - "3000:3000"
+      - "3001:3001"
+    networks:
+      - mnemos-net
+    depends_on:
+      python-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -T 2 -O - http://localhost:3000/healthz || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
+
+volumes:
+  postgres-data:
+  redis-data:
+
+# -----------------------------------------------------------------------
+# Production resource-limit example.
+#
+# Compose treats ``deploy:`` hints as advisory outside Swarm, so in a
+# single-host production deploy you'd merge the block below (or port it
+# to a systemd + docker compose override) to cap per-service footprint.
+# Uncomment and adjust as needed.
+#
+# services:
+#   postgres:
+#     deploy:
+#       resources:
+#         limits:
+#           cpus: '2'
+#           memory: 2G
+#   python-api:
+#     deploy:
+#       resources:
+#         limits:
+#           cpus: '2'
+#           memory: 1G
+#   python-worker:
+#     deploy:
+#       resources:
+#         limits:
+#           cpus: '4'
+#           memory: 2G
+#   github-app:
+#     deploy:
+#       resources:
+#         limits:
+#           cpus: '1'
+#           memory: 512M
+# -----------------------------------------------------------------------

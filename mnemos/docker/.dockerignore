@@ -1,0 +1,27 @@
+# Applied by Docker builds run from the repo root via
+# `docker build -f docker/python.Dockerfile .` (and the TS equivalent).
+# Keeps the build context small and deterministic.
+
+.git
+.github
+docs
+fixtures
+mnemos-plan
+
+# Per-language build artefacts — always rebuilt inside the image.
+python/.venv
+python/.pytest_cache
+python/.mypy_cache
+python/.ruff_cache
+python/__pycache__
+python/**/__pycache__
+python/*.egg-info
+
+typescript/node_modules
+typescript/dist
+typescript/coverage
+
+# Env files never belong in an image.
+.env
+.env.*
+!.env.example

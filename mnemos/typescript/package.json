@@ -1,0 +1,36 @@
+{
+  "name": "@mnemos/github-app",
+  "version": "0.1.0-alpha.0",
+  "private": true,
+  "description": "Mnemos GitHub App: receives webhooks, forwards PR events to the Python orchestrator, and posts reviews back to GitHub.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "engines": {
+    "node": ">=20.11"
+  },
+  "main": "dist/app.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit",
+    "dev": "tsx watch src/app.ts",
+    "start": "node dist/app.js",
+    "lint": "biome check src test",
+    "format": "biome format --write src test",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "hono": "^4.6.0",
+    "@hono/node-server": "^1.13.0",
+    "pino": "^9.0.0",
+    "probot": "^13.4.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.0",
+    "@types/node": "^20.12.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.1.0"
+  }
+}
